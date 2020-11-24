@@ -4,10 +4,8 @@
  * session persistence, api calls, and more.
  * */
 const Alexa = require('ask-sdk-core');
-const AWS = require('aws-sdk');
-const ddbAdapter = require('ask-sdk-dynamodb-persistence-adapter');
 const { getPriceByTicket } = require('./utils/getFinancial');
-const respository = require('./model/dynamoDB');
+const repository = require('./repository/dynamoDB');
 
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
@@ -55,26 +53,42 @@ const AdicionarAcaoCarteiraHandler = {
     },
     async handle(handlerInput) {
 
-        const persistenceSessionAttributes = handlerInput.attributesManager;
+        const accessToken = Alexa.getAccountLinkingAccessToken(handlerInput.requestEnvelope);
+        console.log('TOKEN :: ', accessToken);
 
-        const acaoCarteira = Alexa.getSlotValue(handlerInput.requestEnvelope, 'cotacao');
-        const userId = Alexa.getUserId(handlerInput.requestEnvelope);
+        let speakOutput = '';
 
+        if (!accessToken)
+            speakOutput = 'Você precisa estar logado para acessar essa função. Por favor, efetue o account linking no seu aplicativo Alexa.';
+        else {
+            try {
+                const acao = Alexa.getSlotValue(handlerInput.requestEnvelope, 'acao');
+                const userId = Alexa.getUserId(handlerInput.requestEnvelope);
 
-        try {
-            
-            await respository.teste();
+                const getData = await repository.get(userId);
+                
+                if (Object.keys(getData).length !== 0) {
+                    const { acoes } = getData.Item;
+                    const acoesLength = acoes.length + 1;
+                    await repository.update({ acao, userId, acoesLength });
+                    speakOutput = 'Você atualizou a sua carteira de investimentos! Consulte agora a sua carteira atualizada ou continue adicionado ações.';
+                }
+                else {
+                    let acoesArray = [];
+                    acoesArray.push(acao);
+                    await repository.insert({ acoesArray, userId });
+                    speakOutput = 'Você criou uma carteira! Consulte agora as ações na sua carteira ou continue adicionando novas ações.';
+                }
+            } catch (err) {
+                console.log('Mostrando erro da promise :: ', err);
+                throw err;
+            }
+        };
 
-            return handlerInput.responseBuilder
-                .speak('Inserido com sucesso!')
-                .reprompt('Inserido com sucesso!')
-                .getResponse();
-
-        } catch (err) {
-            console.log('MEU ERRO ::: ', err);
-            throw err;
-        }
-        
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt(speakOutput)
+            .getResponse();
     }
 };
 
@@ -308,12 +322,5 @@ exports.handler = Alexa.SkillBuilders.custom()
         IntentReflectorHandler)
     .addErrorHandlers(
         ErrorHandler
-    )
-    .withPersistenceAdapter(
-        new ddbAdapter.DynamoDbPersistenceAdapter({
-            tableName: process.env.DYNAMODB_PERSISTENCE_TABLE_NAME,
-            createTable: false,
-            dynamoDBClient: new AWS.DynamoDB({ apiVersion: 'latest', region: process.env.DYNAMODB_PERSISTENCE_REGION })
-        })
     )
     .lambda();
