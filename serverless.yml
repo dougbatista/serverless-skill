@@ -1,0 +1,14 @@
+service: lambda
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: dev
+  region: us-east-1
+functions:
+  alexa:
+    handler: index.handler
+    events:
+      - alexaSkill: amzn1.ask.skill.539e8e3c-ce98-429b-bf45-070c223c2613
+    environment:
+      DYNAMODB_PERSISTENCE_TABLE_NAME: 'persistencia-alexa'
+      DYNAMODB_PERSISTENCE_REGION: 'us-east-1'
