@@ -1,8 +1,3 @@
-/* *
- * This sample demonstrates handling intents from an Alexa skill using the Alexa Skills Kit SDK (v2).
- * Please visit https://alexa.design/cookbook for additional examples on implementing slots, dialog management,
- * session persistence, api calls, and more.
- * */
 const Alexa = require('ask-sdk-core');
 const { getPriceByTicket } = require('./utils/getFinancial');
 const repository = require('./repository/dynamoDB');
@@ -109,8 +104,6 @@ const ConsultarCarteiraAcoes = {
     async handle(handlerInput) {
 
         const accessToken = Alexa.getAccountLinkingAccessToken(handlerInput.requestEnvelope);
-        console.log('TOKEN :: ', accessToken);
-
         let speakOutput = '';
 
         if (!accessToken) {
@@ -132,10 +125,7 @@ const ConsultarCarteiraAcoes = {
                         speakOutput = 
                             `Você possui apenas a ação da empresa ${acoes[0]}. Deseja consultar?`
                     } else {
-                        acoes.splice(acoes.length - 1, 0, 'e');
-                        
-                        console.log('Tô testando aqui ::: ', acoes);
-                        
+                        acoes.splice(acoes.length - 1, 0, 'e');                        
                         speakOutput = 
                             `Você possui as ações das empresas ${ acoes.join(' ').replace(' ', ',') }. Qual delas você deseja consultar?`
                     }                    
@@ -144,7 +134,6 @@ const ConsultarCarteiraAcoes = {
                     speakOutput = 'Você ainda não possui nenhuma ação na sua carteira. Adicione algumas ações e tente consultar novamente!';
                 }
             } catch (err) {
-                console.log('Checando o erro:: ', err);
                 throw err;
             }
         };
@@ -290,11 +279,7 @@ const CancelAndStopIntentHandler = {
             .getResponse();
     }
 };
-/* *
- * FallbackIntent triggers when a customer says something that doesn’t map to any intents in your skill
- * It must also be defined in the language model (if the locale supports it)
- * This handler can be safely added but will be ingnored in locales that do not support it yet 
- * */
+
 const FallbackIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -309,11 +294,7 @@ const FallbackIntentHandler = {
             .getResponse();
     }
 };
-/* *
- * SessionEndedRequest notifies that a session was ended. This handler will be triggered when a currently open 
- * session is closed for one of the following reasons: 1) The user says "exit" or "quit". 2) The user does not 
- * respond or says something that does not match an intent defined in your voice model. 3) An error occurs 
- * */
+
 const SessionEndedRequestHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'SessionEndedRequest';
@@ -324,11 +305,7 @@ const SessionEndedRequestHandler = {
         return handlerInput.responseBuilder.getResponse(); // notice we send an empty response
     }
 };
-/* *
- * The intent reflector is used for interaction model testing and debugging.
- * It will simply repeat the intent the user said. You can create custom handlers for your intents 
- * by defining them above, then also adding them to the request handler chain below 
- * */
+
 const IntentReflectorHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest';
@@ -343,11 +320,7 @@ const IntentReflectorHandler = {
             .getResponse();
     }
 };
-/**
- * Generic error handling to capture any syntax or routing errors. If you receive an error
- * stating the request handler chain is not found, you have not implemented a handler for
- * the intent being invoked or included it in the skill builder below 
- * */
+
 const ErrorHandler = {
     canHandle() {
         return true;
@@ -363,11 +336,7 @@ const ErrorHandler = {
     }
 };
 
-/**
- * This handler acts as the entry point for your skill, routing all request and response
- * payloads to the handlers above. Make sure any new handlers or interceptors you've
- * defined are included below. The order matters - they're processed top to bottom 
- * */
+
 exports.handler = Alexa.SkillBuilders.custom()
     .addRequestHandlers(
         LaunchRequestHandler,
@@ -384,5 +353,4 @@ exports.handler = Alexa.SkillBuilders.custom()
         IntentReflectorHandler)
     .addErrorHandlers(
         ErrorHandler
-    )
-    .lambda();
+    ).lambda();
