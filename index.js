@@ -13,7 +13,8 @@ const LaunchRequestHandler = {
     },
     handle(handlerInput) {
 
-        const speakOutput = 'Olá, bem vindo ao seu assistente do financeiro. De qual ação você deseja saber a cotação?';
+        const speakOutput = 
+            `Olá, seja bem-vindo ao seu assistente financeiro. Consigo consultar as ações do ibovespa, montar uma carteira de ações com as que você escolher e listar a sua carteira. O que vai querer pra hoje? `;
         const speakReprompt = 'Só consigo te ajudar com ações de empresas nacionais por enquanto!';
 
         return handlerInput.responseBuilder
@@ -58,29 +59,92 @@ const AdicionarAcaoCarteiraHandler = {
 
         let speakOutput = '';
 
-        if (!accessToken)
+        if (!accessToken) {
             speakOutput = 'Você precisa estar logado para acessar essa função. Por favor, efetue o account linking no seu aplicativo Alexa.';
+        }
         else {
             try {
+                
                 const acao = Alexa.getSlotValue(handlerInput.requestEnvelope, 'acao');
+                const userId = Alexa.getUserId(handlerInput.requestEnvelope);
+                
+                if (!acao) {
+                    speakOutput = 'Qual ação você deseja adicionar?';
+                }
+                else {
+                    const getData = await repository.get(userId);
+    
+                    if (Object.keys(getData).length !== 0) {
+                        const { acoes } = getData.Item;
+                        const acoesLength = acoes.length + 1;
+                        await repository.update({ acao, userId, acoesLength });
+                        speakOutput = 'Você atualizou a sua carteira de investimentos! Consulte agora a sua carteira atualizada ou continue adicionando ações.';
+                    }
+                    else {
+                        let acoesArray = [];
+                        acoesArray.push(acao);
+                        await repository.insert({ acoesArray, userId });
+                        speakOutput = 'Você criou uma carteira! Consulte agora as ações na sua carteira ou continue adicionando novas ações.';
+                    }
+                }
+
+            } catch (err) {
+                console.log('Mostrando erro da promise :: ', err);
+                throw err;
+            }
+        };
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt(speakOutput)
+            .getResponse();
+    }
+};
+
+const ConsultarCarteiraAcoes = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'ConsultarCarteiraAcao';
+    },
+    async handle(handlerInput) {
+
+        const accessToken = Alexa.getAccountLinkingAccessToken(handlerInput.requestEnvelope);
+        console.log('TOKEN :: ', accessToken);
+
+        let speakOutput = '';
+
+        if (!accessToken) {
+            speakOutput = 'Você precisa estar logado para acessar essa função. Por favor, efetue o account linking no seu aplicativo Alexa.';
+        }
+        else {
+            try {
+
                 const userId = Alexa.getUserId(handlerInput.requestEnvelope);
 
                 const getData = await repository.get(userId);
-                
+
                 if (Object.keys(getData).length !== 0) {
                     const { acoes } = getData.Item;
-                    const acoesLength = acoes.length + 1;
-                    await repository.update({ acao, userId, acoesLength });
-                    speakOutput = 'Você atualizou a sua carteira de investimentos! Consulte agora a sua carteira atualizada ou continue adicionado ações.';
+
+                    console.log('MOSTRANDO AÇÕES', acoes);
+
+                    if(acoes.length === 1) {
+                        speakOutput = 
+                            `Você possui apenas a ação da empresa ${acoes[0]}. Deseja consultar?`
+                    } else {
+                        acoes.splice(acoes.length - 1, 0, 'e');
+                        
+                        console.log('Tô testando aqui ::: ', acoes);
+                        
+                        speakOutput = 
+                            `Você possui as ações das empresas ${ acoes.join(' ').replace(' ', ',') }. Qual delas você deseja consultar?`
+                    }                    
                 }
                 else {
-                    let acoesArray = [];
-                    acoesArray.push(acao);
-                    await repository.insert({ acoesArray, userId });
-                    speakOutput = 'Você criou uma carteira! Consulte agora as ações na sua carteira ou continue adicionando novas ações.';
+                    speakOutput = 'Você ainda não possui nenhuma ação na sua carteira. Adicione algumas ações e tente consultar novamente!';
                 }
             } catch (err) {
-                console.log('Mostrando erro da promise :: ', err);
+                console.log('Checando o erro:: ', err);
                 throw err;
             }
         };
@@ -100,8 +164,6 @@ const HistoriaIbovespa = {
     async handle(handlerInput) {
 
         let messageStep = 0;
-        let messageSteps = 3;
-
         let messages = [
             'O Ibov foi criado em 1968, pela Bolsa de Valores de São Paulo (que hoje é chamada de B3, após incorporar outras instituições importantes desse mercado). Quer continuar ouvindo a história?',
             'O Índice Bovespa surgiu a partir de uma série de mudanças que buscavam modernizar a estrutura do mercado financeiro do país. Quer continuar ouvindo a história?',
@@ -116,7 +178,7 @@ const HistoriaIbovespa = {
         sessionAttributes.previousIntent = Alexa.getIntentName(handlerInput.requestEnvelope);
         sessionAttributes.HistoriaIbovespa = messages;
         sessionAttributes.messageStep = messageStep;
-        sessionAttributes.messageSteps = messageSteps;
+
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
@@ -200,7 +262,6 @@ const NoIntentHandler = {
                 sessionAttributes.previousIntent = '';
                 sessionAttributes.HistoriaIbovespa = [];
                 sessionAttributes.messageStep = 0;
-                sessionAttributes.messageSteps = 0;
                 speakOutput = 'Tudo bem então. Te aguardo para mais dúvidas';
                 break;
             default:
@@ -312,6 +373,7 @@ exports.handler = Alexa.SkillBuilders.custom()
         LaunchRequestHandler,
         PerguntaIndiceIntentHandler,
         AdicionarAcaoCarteiraHandler,
+        ConsultarCarteiraAcoes,
         HelpIntentHandler,
         HistoriaIbovespa,
         YesIntentHandler,
